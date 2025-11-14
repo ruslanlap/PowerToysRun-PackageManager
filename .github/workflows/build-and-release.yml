@@ -78,14 +78,20 @@ jobs:
                             Select-Object -First 1 -ExpandProperty FullName
                   if (-not $netDir) { throw "Build output not found in $outDir" }
 
+                  # When building with RuntimeIdentifier, output is in a RID subdirectory
+                  $rid = if ("${{ matrix.platform }}" -eq "x64") { "win-x64" } else { "win-arm64" }
+                  $ridDir = Join-Path $netDir $rid
+                  $buildDir = if (Test-Path $ridDir) { $ridDir } else { $netDir }
+
                   # 4. Create staging directory
                   $stage = "artifacts/${{ env.ARTIFACT_PREFIX }}-${{ steps.get_version.outputs.VERSION }}-${{ matrix.platform }}/${{ env.ARTIFACT_PREFIX }}"
                   New-Item $stage -ItemType Directory -Force | Out-Null
 
                   # 5. Copy plugin files (exclude PowerToys and Wox dependencies)
-                  Copy-Item "$netDir/*" $stage -Recurse -Exclude @(
-                    "PowerToys*.dll","PowerToys*.pdb","Wox*.dll","Wox*.pdb"
-                  )
+                  Get-ChildItem $buildDir -File | Where-Object {
+                    $_.Name -notlike "PowerToys*" -and $_.Name -notlike "Wox*"
+                  } | Copy-Item -Destination $stage
+
                   Copy-Item $pluginJson $stage
                   Copy-Item "${{ env.PLUGIN_DIR }}/Images" $stage -Recurse -ErrorAction SilentlyContinue
 
