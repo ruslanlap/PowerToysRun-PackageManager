@@ -36,7 +36,9 @@ Search across NPM, NuGet, and PyPI with `Alt+Space` → `pm react` → Done! ✨
 </div>
 
 ---
-
+<div align="center">
+  <img src="assets/Demomain.png" alt="Package Manager Demo" width="800">
+</div>
 <div align="center">
 
 ### ⚠️ **Important Note for Better Performance**
