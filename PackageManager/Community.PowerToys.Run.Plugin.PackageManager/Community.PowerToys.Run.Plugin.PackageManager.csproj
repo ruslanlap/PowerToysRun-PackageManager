@@ -5,7 +5,7 @@
     <UseWPF>true</UseWPF>
     <Platforms>x64;ARM64</Platforms>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
-    <PlatformTarget>$(Platform)</PlatformTarget>
+    <PlatformTarget>Windows</PlatformTarget>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <Nullable>enable</Nullable>
     <NoWarn>$(NoWarn);CA1416</NoWarn>
