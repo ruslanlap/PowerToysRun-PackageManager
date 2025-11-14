@@ -40,8 +40,37 @@ Search across NPM, NuGet, and PyPI with `Alt+Space` → `pm react` → Done! ✨
 **Option A: Download from Releases**
 
 1. Go to [Releases](https://github.com/ruslanlap/PowerToysRun-PackageManager/releases/latest)
-2. Download `PackageManager-x64.zip` or `PackageManager-ARM64.zip`
+2. Download `PackageManager-1.0.0-x64.zip` or `PackageManager-1.0.0-ARM64.zip`
 3. Extract the ZIP file
+
+### 2️⃣ **Install to PowerToys** (30 seconds)
+
+**Installation Steps:**
+
+1. Press `Win + R` to open the Run dialog
+2. Paste the following path and press Enter:
+    ```
+    %LOCALAPPDATA%\Microsoft\PowerToys\PowerToys Run\Plugins\
+    ```
+3. Copy the extracted `PackageManager` folder into the `Plugins` directory
+4. Your folder structure should look like this:
+    ```
+    Plugins\
+      └── PackageManager\
+          ├── Community.PowerToys.Run.Plugin.PackageManager.dll
+          ├── plugin.json
+          └── Images\
+              ├── packagemanager.dark.png
+              └── packagemanager.light.png
+    ```
+
+### 3️⃣ **Restart PowerToys** (15 seconds)
+
+1. Right-click the PowerToys icon in your system tray
+2. Click "Exit" or "Quit"
+3. Launch PowerToys again from the Start menu
+4. Press `Alt + Space` to open PowerToys Run
+5. Type `pm` to verify the plugin is working
 
 ---
 
