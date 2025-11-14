@@ -222,5 +222,5 @@ jobs:
             release-artifacts/*.sha256
             release-artifacts/checksums.txt
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
           
