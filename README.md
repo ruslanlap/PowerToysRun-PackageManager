@@ -65,6 +65,22 @@ Alt+Space → pm pip django         # 🐍 Search only PyPI
 
 ---
 
+## ⌨️ Keyboard Shortcuts
+
+<div align="center">
+
+| Action                   | Shortcut                            | Description                             |
+| ------------------------ | ----------------------------------- | --------------------------------------- |
+| **Copy Install Command** | `Enter`                             | Copies `npm install react` to clipboard |
+| **Copy Package Name**    | `Ctrl+C`                            | Copies just the package name            |
+| **Open Package Page**    | `Ctrl+O`                            | Opens package URL in browser            |
+| **Copy Package URL**     | `Ctrl+U`                            | Copies package URL to clipboard         |
+| **Context Menu**         | `Right-Click` or `Ctrl+Shift+Enter` | Shows all available actions             |
+
+</div>
+
+---
+
 ## 📊 Supported Package Managers
 
 <div align="center">
@@ -196,6 +212,8 @@ Alt+Space → pm pip django         # 🐍 Search only PyPI
 | `pm nuget entity` | Search only NuGet                 | Shows NuGet packages matching "entity"  |
 | `pm pip requests` | Search only PyPI                  | Shows PyPI packages matching "requests" |
 
+</div>
+
 ### Advanced Examples
 
 ```bash
@@ -212,24 +230,6 @@ pm nuget automapper          # .NET mapping library
 pm npm react-router          # React routing library
 pm pip flask                 # Python web framework
 ```
-
-</div>
-
----
-
-## ⌨️ Keyboard Shortcuts
-
-<div align="center">
-
-| Action                   | Shortcut                            | Description                             |
-| ------------------------ | ----------------------------------- | --------------------------------------- |
-| **Copy Install Command** | `Enter`                             | Copies `npm install react` to clipboard |
-| **Copy Package Name**    | `Ctrl+C`                            | Copies just the package name            |
-| **Open Package Page**    | `Ctrl+O`                            | Opens package URL in browser            |
-| **Copy Package URL**     | `Ctrl+U`                            | Copies package URL to clipboard         |
-| **Context Menu**         | `Right-Click` or `Ctrl+Shift+Enter` | Shows all available actions             |
-
-</div>
 
 ---
 
@@ -538,7 +538,7 @@ Copyright (c) 2025 ruslanlap
 
 ## 🙏 Acknowledgements
 
-<div align="center">
+<div align="left">
 
 **Built with ❤️ using:**
 

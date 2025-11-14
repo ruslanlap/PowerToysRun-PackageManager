@@ -130,8 +130,8 @@ jobs:
               id: release_notes
               run: |
                   VERSION="${{ steps.get_version.outputs.VERSION }}"
-                  cat > release_notes.md << 'EOL'
-                  # 📦 PackageManager v${{ steps.get_version.outputs.VERSION }} – Package Search Made Easy!
+                  cat > release_notes.md << EOL
+                  # 📦 PackageManager v${VERSION} – Package Search Made Easy!
 
                   <p align="center">
                     <img src="https://github.com/ruslanlap/PowerToysRun-PackageManager/raw/master/assets/logo.png" width="128" alt="PackageManager Logo"/>
@@ -149,17 +149,17 @@ jobs:
 
                   ## 🚀 Install
                   1. Download ZIP for your architecture (x64 / ARM64)
-                  2. Extract to `%LOCALAPPDATA%\Microsoft\PowerToys\PowerToys Run\Plugins\PackageManager\`
-                  3. Restart PowerToys → press `Alt+Space` → type `pm react`
+                  2. Extract to \`%LOCALAPPDATA%\Microsoft\PowerToys\PowerToys Run\Plugins\PackageManager\\\`
+                  3. Restart PowerToys → press \`Alt+Space\` → type \`pm react\`
 
                   ## 💡 Quick Examples
                   | Command | Description |
                   |---------|-------------|
-                  | `pm react` | Search all registries for "react" |
-                  | `pm npm express` | Search only NPM for "express" |
-                  | `pm nuget entity` | Search only NuGet for "entity" |
-                  | `pm pip django` | Search only PyPI for "django" |
-                  | `pm npm @types/node` | Search for scoped packages |
+                  | \`pm react\` | Search all registries for "react" |
+                  | \`pm npm express\` | Search only NPM for "express" |
+                  | \`pm nuget entity\` | Search only NuGet for "entity" |
+                  | \`pm pip django\` | Search only PyPI for "django" |
+                  | \`pm npm @types/node\` | Search for scoped packages |
 
                   ## ⌨️ Keyboard Shortcuts
                   - **Enter** - Copy install command to clipboard
@@ -185,9 +185,6 @@ jobs:
 
                   Made with ❤️ by [ruslanlap](https://github.com/ruslanlap)
                   EOL
-
-                  # Replace placeholder with actual version
-                  sed -i "s/\${{ steps.get_version.outputs.VERSION }}/${VERSION}/g" release_notes.md
 
                   echo "RELEASE_NOTES<<EOF" >> $GITHUB_OUTPUT
                   cat release_notes.md >> $GITHUB_OUTPUT
