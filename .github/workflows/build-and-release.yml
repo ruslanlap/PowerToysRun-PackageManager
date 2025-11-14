@@ -56,13 +56,20 @@ jobs:
       - name: 🚀 Build & stage plugin
         shell: pwsh
         run: |
-          # 1. Inject version
+          # 1. Inject version into plugin.json
           $pluginJson = "${{ env.PLUGIN_DIR }}/plugin.json"
           $content    = Get-Content $pluginJson -Raw | ConvertFrom-Json
           $content.Version = "${{ steps.get_version.outputs.VERSION }}"
           $content | ConvertTo-Json -Depth 10 | Set-Content $pluginJson -Encoding UTF8
 
-          # 2. Build & Publish
+          # 2. Inject version into AssemblyInfo.cs
+          $assemblyInfo = "${{ env.PLUGIN_DIR }}/Properties/AssemblyInfo.cs"
+          $version = "${{ steps.get_version.outputs.VERSION }}"
+          $assemblyVersion = "$version.0"
+          (Get-Content $assemblyInfo) -replace 'AssemblyVersion\(".*"\)', "AssemblyVersion(`"$assemblyVersion`")" | Set-Content $assemblyInfo
+          (Get-Content $assemblyInfo) -replace 'AssemblyFileVersion\(".*"\)', "AssemblyFileVersion(`"$assemblyVersion`")" | Set-Content $assemblyInfo
+
+          # 3. Build & Publish
           $rid = if ("${{ matrix.platform }}" -eq "x64") { "win-x64" } else { "win-arm64" }
           $platformDir = if ("${{ matrix.platform }}" -eq "x64") { "x64" } else { "ARM64" }
           dotnet publish "${{ env.PLUGIN_DIR }}/Community.PowerToys.Run.Plugin.PackageManager.csproj" `
@@ -73,20 +80,20 @@ jobs:
             -p:UseAppHost=false `
             --self-contained false
 
-          # 3. Locate binaries (publish output)
+          # 4. Locate binaries (publish output)
           $outDir = "${{ env.PLUGIN_DIR }}/bin/$platformDir/Release/net9.0-windows10.0.22621.0/$rid/publish"
           if (-not (Test-Path $outDir)) { throw "Publish output not found at $outDir" }
 
-          # 4. Stage folder
+          # 5. Stage folder
           $stage = "artifacts/${{ env.ARTIFACT_PREFIX }}-${{ steps.get_version.outputs.VERSION }}-${{ matrix.platform }}/${{ env.ARTIFACT_PREFIX }}"
           New-Item $stage -ItemType Directory -Force | Out-Null
 
-          # 5. Copy files from publish output
+          # 6. Copy files from publish output
           Copy-Item "$outDir/*" $stage -Recurse -Exclude @(
             "PowerToys*.dll","PowerToys*.pdb","Wox*.dll","Wox*.pdb"
           )
 
-          # 6. Ensure plugin.json and Images are included
+          # 7. Ensure plugin.json and Images are included
           if (-not (Test-Path "$stage/plugin.json")) {
             Write-Warning "plugin.json not found in publish output, copying manually..."
             Copy-Item $pluginJson $stage
@@ -96,7 +103,7 @@ jobs:
             Copy-Item "${{ env.PLUGIN_DIR }}/Images" $stage -Recurse -ErrorAction SilentlyContinue
           }
 
-          # 7. Remove unnecessary Windows dependencies
+          # 8. Remove unnecessary Windows dependencies
           Remove-Item "$stage/Microsoft.Windows.SDK.NET.dll" -ErrorAction SilentlyContinue
           Remove-Item "$stage/WinRT.Runtime.dll" -ErrorAction SilentlyContinue
           Remove-Item "$stage/System.Text.Json.dll" -ErrorAction SilentlyContinue
