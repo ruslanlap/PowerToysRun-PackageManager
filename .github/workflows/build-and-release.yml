@@ -62,29 +62,44 @@ jobs:
           $content.Version = "${{ steps.get_version.outputs.VERSION }}"
           $content | ConvertTo-Json -Depth 10 | Set-Content $pluginJson -Encoding UTF8
 
-          # 2. Build
+          # 2. Build & Publish
           $rid = if ("${{ matrix.platform }}" -eq "x64") { "win-x64" } else { "win-arm64" }
-          dotnet build "${{ env.PLUGIN_DIR }}/Community.PowerToys.Run.Plugin.PackageManager.csproj" `
+          $platformDir = if ("${{ matrix.platform }}" -eq "x64") { "x64" } else { "ARM64" }
+          dotnet publish "${{ env.PLUGIN_DIR }}/Community.PowerToys.Run.Plugin.PackageManager.csproj" `
             -c Release `
-            -p:Platform="${{ matrix.platform }}" `
-            -p:RuntimeIdentifier=$rid
+            -r $rid `
+            -p:Platform="$platformDir" `
+            -p:TargetPlatform=windows `
+            -p:UseAppHost=false `
+            --self-contained false
 
-          # 3. Locate binaries
-          $outDir = "${{ env.PLUGIN_DIR }}/bin/${{ matrix.platform }}/Release"
-          $netDir = Get-ChildItem $outDir -Directory -Filter "net*-windows*" |
-                    Select-Object -First 1 -ExpandProperty FullName
-          if (-not $netDir) { throw "Build output not found" }
+          # 3. Locate binaries (publish output)
+          $outDir = "${{ env.PLUGIN_DIR }}/bin/$platformDir/Release/net9.0-windows10.0.22621.0/$rid/publish"
+          if (-not (Test-Path $outDir)) { throw "Publish output not found at $outDir" }
 
           # 4. Stage folder
           $stage = "artifacts/${{ env.ARTIFACT_PREFIX }}-${{ steps.get_version.outputs.VERSION }}-${{ matrix.platform }}/${{ env.ARTIFACT_PREFIX }}"
           New-Item $stage -ItemType Directory -Force | Out-Null
 
-          # 5. Copy files
-          Copy-Item "$netDir/*" $stage -Recurse -Exclude @(
+          # 5. Copy files from publish output
+          Copy-Item "$outDir/*" $stage -Recurse -Exclude @(
             "PowerToys*.dll","PowerToys*.pdb","Wox*.dll","Wox*.pdb"
           )
-          Copy-Item $pluginJson $stage
-          Copy-Item "${{ env.PLUGIN_DIR }}/Images" $stage -Recurse -ErrorAction SilentlyContinue
+
+          # 6. Ensure plugin.json and Images are included
+          if (-not (Test-Path "$stage/plugin.json")) {
+            Write-Warning "plugin.json not found in publish output, copying manually..."
+            Copy-Item $pluginJson $stage
+          }
+          if (-not (Test-Path "$stage/Images")) {
+            Write-Warning "Images folder not found in publish output, copying manually..."
+            Copy-Item "${{ env.PLUGIN_DIR }}/Images" $stage -Recurse -ErrorAction SilentlyContinue
+          }
+
+          # 7. Remove unnecessary Windows dependencies
+          Remove-Item "$stage/Microsoft.Windows.SDK.NET.dll" -ErrorAction SilentlyContinue
+          Remove-Item "$stage/WinRT.Runtime.dll" -ErrorAction SilentlyContinue
+          Remove-Item "$stage/System.Text.Json.dll" -ErrorAction SilentlyContinue
 
       - name: 📦 Zip & upload artifact
         shell: pwsh

@@ -4,17 +4,22 @@
     <TargetFramework>net9.0-windows10.0.22621.0</TargetFramework>
     <UseWPF>true</UseWPF>
     <Platforms>x64;ARM64</Platforms>
+    <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <PlatformTarget>$(Platform)</PlatformTarget>
+    <TargetPlatform>windows</TargetPlatform>
+    <TargetPlatformMoniker>Windows,Version=10.0.22621.0</TargetPlatformMoniker>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <Nullable>enable</Nullable>
-    <NoWarn>$(NoWarn);CA1416</NoWarn>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <NoWarn>$(NoWarn);CA1416;MSB3277</NoWarn>
+    <!-- Exclude Windows SDK assemblies (provided by PowerToys) -->
+    <PublishTrimmed>false</PublishTrimmed>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Community.PowerToys.Run.Plugin.Dependencies" Version="0.93.0" />
     <PackageReference Include="System.Net.Http.Json" Version="9.0.10" />
-    <PackageReference Include="System.Text.Json" Version="9.0.10" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,161 +1,90 @@
 #!/bin/bash
 set -e
 
-# ===== PERFORMANCE OPTIMIZATIONS =====
-# Disable .NET telemetry and first-time experience for faster builds
-export DOTNET_CLI_TELEMETRY_OPTOUT=1
-export DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1
-export DOTNET_NOLOGO=1
-export MSBUILDDISABLENODEREUSE=1
-
 # ===== CONFIG =====
 ROOT_DIR="$(pwd)"
 PROJECT_PATH="PackageManager/Community.PowerToys.Run.Plugin.PackageManager/Community.PowerToys.Run.Plugin.PackageManager.csproj"
 PLUGIN_NAME="PackageManager"
-PLUGIN_DIR="PackageManager/Community.PowerToys.Run.Plugin.PackageManager"
 PUBLISH_DIR="PackageManager/Publish"
 
 # ===== CLEAN UP =====
-echo "🧹 Cleaning up previous builds..."
 rm -rf "$PUBLISH_DIR"
-rm -rf "$PLUGIN_DIR/bin"
-rm -rf "$PLUGIN_DIR/obj"
+rm -rf "PackageManager/Community.PowerToys.Run.Plugin.PackageManager/bin"
+rm -rf "PackageManager/Community.PowerToys.Run.Plugin.PackageManager/obj"
 rm -f "${ROOT_DIR}/${PLUGIN_NAME}-"*.zip
 
 # ===== GET VERSION =====
-VERSION=$(grep '"Version"' "$PLUGIN_DIR/plugin.json" | sed 's/.*"Version": "\([^"]*\)".*/\1/')
+VERSION=$(grep '"Version"' PackageManager/Community.PowerToys.Run.Plugin.PackageManager/plugin.json | sed 's/.*"Version": "\([^"]*\)".*/\1/')
 echo "📋 Plugin: $PLUGIN_NAME"
 echo "📋 Version: $VERSION"
-echo ""
 
 # ===== DEPENDENCIES TO EXCLUDE =====
-DEPENDENCIES_TO_EXCLUDE=("PowerToys.Common.UI.*" "PowerToys.ManagedCommon.*" "PowerToys.Settings.UI.Lib.*" "Wox.Infrastructure.*" "Wox.Plugin.*")
+DEPENDENCIES_TO_EXCLUDE="PowerToys.Common.UI.* PowerToys.ManagedCommon.* PowerToys.Settings.UI.Lib.* Wox.Infrastructure.* Wox.Plugin.*"
 
-# ===== OPTIMIZED PUBLISH FUNCTION =====
-publish_platform() {
-    local RID=$1
-    local ARCH="${RID#win-}"  # Remove 'win-' prefix
+# ===== BUILD X64 =====
+echo "🛠️  Building for x64..."
+dotnet publish "$PROJECT_PATH" -c Release -r win-x64 -p:Platform=x64 -p:TargetPlatform=windows -p:UseAppHost=false --self-contained false
 
-    echo "🛠️  Publishing for $ARCH..."
+# ===== BUILD ARM64 =====
+echo "🛠️  Building for ARM64..."
+dotnet publish "$PROJECT_PATH" -c Release -r win-arm64 -p:Platform=ARM64 -p:TargetPlatform=windows -p:UseAppHost=false --self-contained false
 
-    # PERFORMANCE: Use dotnet publish with Windows RID
-    dotnet publish "$PROJECT_PATH" \
-        -c Release \
-        -r "$RID" \
-        -p:Platform="$ARCH" \
-        -p:PublishSingleFile=false \
-        -p:SelfContained=false \
-        --nologo \
-        -v:minimal
-
-    echo "✅ Publish completed for $ARCH"
-}
-
-# ===== PARALLEL PUBLISHES =====
-echo "⚡ Publishing both platforms in parallel..."
-publish_platform "win-x64" &
-PID_X64=$!
-
-publish_platform "win-arm64" &
-PID_ARM64=$!
-
-# Wait for both publishes to complete
-wait $PID_X64 || { echo "❌ x64 publish failed"; exit 1; }
-wait $PID_ARM64 || { echo "❌ ARM64 publish failed"; exit 1; }
-
-echo ""
-echo "✅ All publishes completed successfully!"
-echo ""
-
-# ===== OPTIMIZED PACKAGE FUNCTION =====
+# ===== PACKAGE FUNCTION =====
 package_build() {
-    local RID=$1
-    local ARCH="${RID#win-}"  # Remove 'win-' prefix
+    ARCH=$1
+    CLEAN_ARCH="${ARCH#win-}" # remove 'win-' prefix
+    # Platform needs to match what dotnet build uses (x64 vs X64, ARM64 vs arm64)
+    if [ "$CLEAN_ARCH" = "arm64" ]; then
+        PLATFORM_DIR="ARM64"
+    else
+        PLATFORM_DIR="$CLEAN_ARCH"
+    fi
+    echo "📦 Packaging $CLEAN_ARCH..."
 
-    echo "📦 Packaging $ARCH..."
+    BUILD_PATH="./PackageManager/Community.PowerToys.Run.Plugin.PackageManager/bin/$PLATFORM_DIR/Release/net9.0-windows10.0.22621.0/$ARCH/publish"
+    STAGE_DIR="./PackageManager/Publish/$CLEAN_ARCH"
+    DEST="$STAGE_DIR/$PLUGIN_NAME"
+    ZIP_PATH="${ROOT_DIR}/${PLUGIN_NAME}-${VERSION}-${CLEAN_ARCH}.zip"
 
-    # PERFORMANCE: Use publish directory path
-    local PUBLISH_PATH="$PLUGIN_DIR/bin/$ARCH/Release/net9.0-windows10.0.22621.0/$RID/publish"
-    local STAGE_DIR="$PUBLISH_DIR/$ARCH/$PLUGIN_NAME"
-    local ZIP_PATH="${ROOT_DIR}/${PLUGIN_NAME}-${VERSION}-${ARCH}.zip"
+    rm -rf "$STAGE_DIR"
+    mkdir -p "$DEST"
+    cp -r "$BUILD_PATH"/* "$DEST/"
 
-    # Create staging directory
-    mkdir -p "$STAGE_DIR"
-
-    # Copy all published files
-    cp -r "$PUBLISH_PATH"/* "$STAGE_DIR/"
-
-    # Remove PowerToys/Wox dependencies (provided by PowerToys)
-    find "$STAGE_DIR" -type f \( \
-        -name "PowerToys*.dll" -o \
-        -name "PowerToys*.pdb" -o \
-        -name "Wox*.dll" -o \
-        -name "Wox*.pdb" \
-    \) -delete
-
-    # Copy plugin.json and Images
-    cp "$PLUGIN_DIR/plugin.json" "$STAGE_DIR/"
-    if [ -d "$PLUGIN_DIR/Images" ]; then
-        cp -r "$PLUGIN_DIR/Images" "$STAGE_DIR/"
+    # Ensure plugin.json and Images are included
+    if [ ! -f "$DEST/plugin.json" ]; then
+        echo "⚠️  Warning: plugin.json not found in publish output, copying manually..."
+        cp "./PackageManager/Community.PowerToys.Run.Plugin.PackageManager/plugin.json" "$DEST/"
+    fi
+    if [ ! -d "$DEST/Images" ]; then
+        echo "⚠️  Warning: Images folder not found in publish output, copying manually..."
+        cp -r "./PackageManager/Community.PowerToys.Run.Plugin.PackageManager/Images" "$DEST/" 2>/dev/null || true
     fi
 
-    # PERFORMANCE: Create zip with optimal compression
-    # -q: quiet mode for faster execution
-    # -9: maximum compression
-    (cd "$PUBLISH_DIR/$ARCH" && zip -q -9 -r "$ZIP_PATH" "$PLUGIN_NAME")
+    # Remove PowerToys dependencies
+    for dep in $DEPENDENCIES_TO_EXCLUDE; do
+        find "$DEST" -name "$dep" -delete 2>/dev/null || true
+    done
 
-    local SIZE=$(du -h "$ZIP_PATH" | cut -f1)
-    echo "✅ Created $ARCH package: $(basename "$ZIP_PATH") ($SIZE)"
+    # Remove unnecessary Windows dependencies
+    rm -f "$DEST/Microsoft.Windows.SDK.NET.dll"
+    rm -f "$DEST/WinRT.Runtime.dll"
+    rm -f "$DEST/System.Text.Json.dll"
+    # System.Net.Http.Json might be provided by PowerToys, but let's keep it for now as it's needed for HTTP requests
+
+    # Create zip with proper folder structure
+    (cd "$STAGE_DIR" && zip -r "$ZIP_PATH" "$PLUGIN_NAME")
+    echo "✅ Created: $(basename "$ZIP_PATH")"
 }
 
-# ===== PARALLEL PACKAGING =====
-echo "⚡ Packaging both platforms in parallel..."
-package_build "win-x64" &
-PID_PKG_X64=$!
+# ===== PACKAGE BUILDS =====
+package_build "win-x64"
+package_build "win-arm64"
 
-package_build "win-arm64" &
-PID_PKG_ARM64=$!
-
-# Wait for both packaging jobs to complete
-wait $PID_PKG_X64 || { echo "❌ x64 packaging failed"; exit 1; }
-wait $PID_PKG_ARM64 || { echo "❌ ARM64 packaging failed"; exit 1; }
-
-echo ""
-echo "✅ All packages created successfully!"
-echo ""
-
-# ===== PARALLEL CHECKSUM GENERATION =====
+# ===== CHECKSUMS =====
 echo "🔐 Generating checksums..."
-mkdir -p "$ROOT_DIR/checksums"
-
-generate_checksum() {
-    local FILE=$1
-    local CHECKSUM=$(sha256sum "$FILE" | awk '{print toupper($1)}')
-    local BASENAME=$(basename "$FILE")
-    echo "$CHECKSUM  $BASENAME" > "${FILE}.sha256"
-    echo "  ✓ $BASENAME: $CHECKSUM"
-}
-
-# Generate checksums in parallel
 for file in "${PLUGIN_NAME}-${VERSION}-"*.zip; do
-    generate_checksum "$file" &
+    echo "$(basename "$file"): $(sha256sum "$file" | cut -d' ' -f1)"
 done
 
-# Wait for all checksum jobs
-wait
-
-# Create combined checksums file
-{
-    echo "SHA256 Checksums for $PLUGIN_NAME Plugin v$VERSION"
-    echo "Generated: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
-    echo ""
-    cat "${PLUGIN_NAME}-${VERSION}-"*.zip.sha256
-} > "checksums.txt"
-
-echo ""
-echo "🎉 Done! Build artifacts:"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "🎉 Done! ZIP files saved in root directory:"
 ls -lh "${PLUGIN_NAME}-${VERSION}-"*.zip
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo ""
-echo "📋 Checksums saved to: checksums.txt"

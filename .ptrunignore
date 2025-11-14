@@ -1,5 +1,16 @@
-# Exclude template files from ptrun-lint
-src/
+# Exclude template files and test directories from ptrun-lint
+# Templates
+src/templates/
+src/Community.PowerToys.Run.Plugin.Templates.csproj
+
+# Tests
 tests/
+
+# Verified files
 *.verified.*
+
+# Template artifacts
+**/Plugin1/**
+**/Namespace.Plugin1.*
+Templates.sln
 

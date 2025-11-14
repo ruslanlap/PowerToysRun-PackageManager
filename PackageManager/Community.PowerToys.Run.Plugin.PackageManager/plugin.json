@@ -10,6 +10,5 @@
 	"ExecuteFileName": "Community.PowerToys.Run.Plugin.PackageManager.dll",
 	"IcoPathDark": "Images\\packagemanager.dark.png",
 	"IcoPathLight": "Images\\packagemanager.light.png",
-	"Platform": "windows",
-	"DynamicLoading": false
+	"DynamicLoading": true
 }
