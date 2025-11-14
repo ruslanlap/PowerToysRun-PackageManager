@@ -35,6 +35,24 @@ Search across NPM, NuGet, and PyPI with `Alt+Space` → `pm react` → Done! ✨
   </a>
 </div>
 
+---
+
+<div align="center">
+
+### ⚠️ **Important Note for Better Performance**
+
+**To improve response speed and result accuracy**, please try to specify the package manager name in your search query:
+
+- `pm npm <package>` - Search only NPM (faster, more accurate)
+- `pm nuget <package>` - Search only NuGet (faster, more accurate)
+- `pm pip <package>` - Search only PyPI (faster, more accurate)
+
+This simplifies the work for both you and the plugin by searching only the relevant registry instead of all three simultaneously.
+
+</div>
+
+---
+
 ### 1️⃣ **Download & Extract** (30 seconds)
 
 **Option A: Download from Releases**
