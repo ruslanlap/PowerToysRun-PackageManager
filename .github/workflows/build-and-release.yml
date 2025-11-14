@@ -100,18 +100,18 @@ jobs:
           $rid = if ('${{ matrix.platform }}' -eq 'x64') { 'win-x64' } else { 'win-arm64' }
 
           $buildArgs = @(
-            '${{ env.PLUGIN_DIR }}/Community.PowerToys.Run.Plugin.PackageManager.csproj',
-            '-c', 'Release',
-            '-p:Platform=${{ matrix.platform }}',
-            '-p:RuntimeIdentifier=' + $rid,
-            '-p:UseSharedCompilation=false',  # Faster for CI
-            '-p:BuildInParallel=true',        # Parallel project builds
-            '-p:ContinuousIntegrationBuild=true',  # Optimize for CI
-            '-p:Deterministic=true',          # Reproducible builds
-            '-p:DebugType=none',              # Skip PDB generation - 20% faster
-            '-p:DebugSymbols=false',
-            '--nologo',
-            '-v:minimal'                      # Reduce log verbosity - faster output
+            '${{ env.PLUGIN_DIR }}/Community.PowerToys.Run.Plugin.PackageManager.csproj'
+            '-c', 'Release'
+            '-p:Platform=${{ matrix.platform }}'
+            "-p:RuntimeIdentifier=$rid"
+            '-p:UseSharedCompilation=false'
+            '-p:BuildInParallel=true'
+            '-p:ContinuousIntegrationBuild=true'
+            '-p:Deterministic=true'
+            '-p:DebugType=none'
+            '-p:DebugSymbols=false'
+            '--nologo'
+            '-v:minimal'
           )
           dotnet build @buildArgs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
