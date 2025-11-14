@@ -1,0 +1,5 @@
+# Exclude template files from ptrun-lint
+src/
+tests/
+*.verified.*
+
