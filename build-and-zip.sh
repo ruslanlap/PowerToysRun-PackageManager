@@ -31,44 +31,40 @@ echo ""
 # ===== DEPENDENCIES TO EXCLUDE =====
 DEPENDENCIES_TO_EXCLUDE=("PowerToys.Common.UI.*" "PowerToys.ManagedCommon.*" "PowerToys.Settings.UI.Lib.*" "Wox.Infrastructure.*" "Wox.Plugin.*")
 
-# ===== OPTIMIZED BUILD FUNCTION =====
-build_platform() {
+# ===== OPTIMIZED PUBLISH FUNCTION =====
+publish_platform() {
     local RID=$1
     local ARCH="${RID#win-}"  # Remove 'win-' prefix
 
-    echo "🛠️  Building for $ARCH..."
+    echo "🛠️  Publishing for $ARCH..."
 
-    # PERFORMANCE: Optimized build parameters (from workflow)
-    dotnet build "$PROJECT_PATH" \
+    # PERFORMANCE: Use dotnet publish with Windows RID
+    dotnet publish "$PROJECT_PATH" \
         -c Release \
+        -r "$RID" \
         -p:Platform="$ARCH" \
-        -p:RuntimeIdentifier="$RID" \
-        -p:UseSharedCompilation=false \
-        -p:BuildInParallel=true \
-        -p:ContinuousIntegrationBuild=true \
-        -p:Deterministic=true \
-        -p:DebugType=none \
-        -p:DebugSymbols=false \
+        -p:PublishSingleFile=false \
+        -p:SelfContained=false \
         --nologo \
         -v:minimal
 
-    echo "✅ Build completed for $ARCH"
+    echo "✅ Publish completed for $ARCH"
 }
 
-# ===== PARALLEL BUILDS =====
-echo "⚡ Building both platforms in parallel..."
-build_platform "win-x64" &
+# ===== PARALLEL PUBLISHES =====
+echo "⚡ Publishing both platforms in parallel..."
+publish_platform "win-x64" &
 PID_X64=$!
 
-build_platform "win-arm64" &
+publish_platform "win-arm64" &
 PID_ARM64=$!
 
-# Wait for both builds to complete
-wait $PID_X64 || { echo "❌ x64 build failed"; exit 1; }
-wait $PID_ARM64 || { echo "❌ ARM64 build failed"; exit 1; }
+# Wait for both publishes to complete
+wait $PID_X64 || { echo "❌ x64 publish failed"; exit 1; }
+wait $PID_ARM64 || { echo "❌ ARM64 publish failed"; exit 1; }
 
 echo ""
-echo "✅ All builds completed successfully!"
+echo "✅ All publishes completed successfully!"
 echo ""
 
 # ===== OPTIMIZED PACKAGE FUNCTION =====
@@ -78,22 +74,24 @@ package_build() {
 
     echo "📦 Packaging $ARCH..."
 
-    # PERFORMANCE: Calculate paths based on build with RuntimeIdentifier
-    local BUILD_PATH="$PLUGIN_DIR/bin/$ARCH/Release/net9.0-windows10.0.22621.0/$RID"
+    # PERFORMANCE: Use publish directory path
+    local PUBLISH_PATH="$PLUGIN_DIR/bin/$ARCH/Release/net9.0-windows10.0.22621.0/$RID/publish"
     local STAGE_DIR="$PUBLISH_DIR/$ARCH/$PLUGIN_NAME"
     local ZIP_PATH="${ROOT_DIR}/${PLUGIN_NAME}-${VERSION}-${ARCH}.zip"
 
     # Create staging directory
     mkdir -p "$STAGE_DIR"
 
-    # PERFORMANCE: Copy only necessary files (exclude PowerToys/Wox dependencies and PDB files)
-    find "$BUILD_PATH" -type f \
-        ! -name "PowerToys*.dll" \
-        ! -name "PowerToys*.pdb" \
-        ! -name "Wox*.dll" \
-        ! -name "Wox*.pdb" \
-        ! -name "*.pdb" \
-        -exec cp {} "$STAGE_DIR/" \;
+    # Copy all published files
+    cp -r "$PUBLISH_PATH"/* "$STAGE_DIR/"
+
+    # Remove PowerToys/Wox dependencies (provided by PowerToys)
+    find "$STAGE_DIR" -type f \( \
+        -name "PowerToys*.dll" -o \
+        -name "PowerToys*.pdb" -o \
+        -name "Wox*.dll" -o \
+        -name "Wox*.pdb" \
+    \) -delete
 
     # Copy plugin.json and Images
     cp "$PLUGIN_DIR/plugin.json" "$STAGE_DIR/"

@@ -1,4 +1,4 @@
-name: Build and Release PackageManager Plugin (Optimized)
+name: Build and Release PackageManager Plugin
 
 on:
   push:
@@ -7,28 +7,23 @@ on:
   pull_request:
     branches:
       - master
-  workflow_dispatch: # Allow manual trigger for testing
+  workflow_dispatch:
 
-# Permissions for GITHUB_TOKEN (principle of least privilege)
 permissions:
   contents: write
   issues: read
   pull-requests: read
 
-# Prevent concurrent runs to avoid conflicts
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  # Global environment variables for consistency and performance
   DOTNET_VERSION: '9.0.x'
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 'true'
   DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
   DOTNET_NOLOGO: 'true'
-  # Disable MSBuild node reuse for cleaner builds
   MSBUILDDISABLENODEREUSE: '1'
-  # Project-specific paths
   PLUGIN_DIR: PackageManager/Community.PowerToys.Run.Plugin.PackageManager
   ARTIFACT_PREFIX: PackageManager
 
@@ -38,21 +33,18 @@ jobs:
     strategy:
       matrix:
         platform: [x64, ARM64]
-      fail-fast: false # Continue with other platforms if one fails
-      # OPTIMIZATION: Build both platforms in parallel (no max-parallel limit)
+      fail-fast: false
 
     steps:
-      # OPTIMIZATION: Minimal checkout with sparse-checkout for faster cloning
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1 # Shallow clone - 50% faster checkout
+          fetch-depth: 1
           sparse-checkout: |
             PackageManager
             .github
             global.json
 
-      # OPTIMIZATION: Manual NuGet package caching
       - name: Cache NuGet packages
         uses: actions/cache@v4
         with:
@@ -61,19 +53,16 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-nuget-
 
-      # OPTIMIZATION: Use latest setup-dotnet
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
           global-json-file: global.json
 
-      # OPTIMIZATION: Extract version once and reuse
       - name: Extract version
         id: version
         shell: pwsh
         run: |
-          # Fast version extraction without bash overhead
           $version = if ($env:GITHUB_REF -match '^refs/tags/v(.+)$') {
             $matches[1]
           } else {
@@ -82,7 +71,6 @@ jobs:
           "VERSION=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           Write-Host "Version: $version"
 
-      # OPTIMIZATION: Inject version into plugin.json before build
       - name: Update plugin version
         shell: pwsh
         run: |
@@ -92,32 +80,25 @@ jobs:
           $content | ConvertTo-Json -Depth 10 | Set-Content $pluginJson -Encoding UTF8
           Write-Host "Updated plugin.json to version ${{ steps.version.outputs.VERSION }}"
 
-      # OPTIMIZATION: Combined restore and build with parallel compilation
-      - name: Build with optimizations
+      - name: Publish plugin for Windows
         shell: pwsh
         run: |
-          # PERFORMANCE: Use parallel builds and disable unnecessary features
           $rid = if ('${{ matrix.platform }}' -eq 'x64') { 'win-x64' } else { 'win-arm64' }
 
-          $buildArgs = @(
-            '${{ env.PLUGIN_DIR }}/Community.PowerToys.Run.Plugin.PackageManager.csproj'
-            '-c', 'Release'
-            '-p:Platform=${{ matrix.platform }}'
-            "-p:RuntimeIdentifier=$rid"
-            '-p:UseSharedCompilation=false'
-            '-p:BuildInParallel=true'
-            '-p:ContinuousIntegrationBuild=true'
-            '-p:Deterministic=true'
-            '-p:DebugType=none'
-            '-p:DebugSymbols=false'
-            '--nologo'
-            '-v:minimal'
-          )
-          dotnet build @buildArgs
+          Write-Host "Publishing for $rid..."
+          dotnet publish `
+            "${{ env.PLUGIN_DIR }}/Community.PowerToys.Run.Plugin.PackageManager.csproj" `
+            -c Release `
+            -r $rid `
+            -p:Platform=${{ matrix.platform }} `
+            -p:PublishSingleFile=false `
+            -p:SelfContained=false `
+            --nologo `
+            -v:minimal
+
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      # OPTIMIZATION: Ultra-fast artifact preparation with .NET APIs
-      - name: Prepare artifacts (optimized)
+      - name: Prepare artifacts
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -125,68 +106,48 @@ jobs:
           $platform = '${{ matrix.platform }}'
           $rid = if ($platform -eq 'x64') { 'win-x64' } else { 'win-arm64' }
 
-          # PERFORMANCE: Pre-calculate all paths
-          $buildPath = "${{ env.PLUGIN_DIR }}/bin/$platform/Release/net9.0-windows10.0.22621.0/$rid"
-          $artifactPath = "artifacts/${{ env.ARTIFACT_PREFIX }}-v$version-$platform/${{ env.ARTIFACT_PREFIX }}"
+          # Paths
+          $publishPath = "${{ env.PLUGIN_DIR }}/bin/$platform/Release/net9.0-windows10.0.22621.0/$rid/publish"
+          $stagePath = "artifacts/${{ env.ARTIFACT_PREFIX }}-v$version-$platform/${{ env.ARTIFACT_PREFIX }}"
           $zipPath = "artifacts/${{ env.ARTIFACT_PREFIX }}-$version-$platform.zip"
 
-          # PERFORMANCE: Create directory structure in one call
-          [void](New-Item -ItemType Directory -Force -Path $artifactPath)
+          # Create staging directory
+          [void](New-Item -ItemType Directory -Force -Path $stagePath)
 
-          # PERFORMANCE: Use robocopy for fastest file copying (10x faster than Copy-Item)
-          # Copy only files (not subdirectories) from build output
-          robocopy "$buildPath" "$artifactPath" *.* /NFL /NDL /NJH /NJS /NC /NS /NP
-          # Robocopy exit codes: 0-7 are success, 8+ are errors
-          if ($LASTEXITCODE -ge 8) {
-            Write-Error "Robocopy failed with exit code $LASTEXITCODE"
-            exit 1
+          # Copy all published files
+          Copy-Item "$publishPath\*" $stagePath -Recurse -Force
+
+          # Remove PowerToys/Wox dependencies (they're provided by PowerToys)
+          $excludePatterns = @('PowerToys*.dll', 'PowerToys*.pdb', 'Wox*.dll', 'Wox*.pdb')
+          foreach ($pattern in $excludePatterns) {
+            Get-ChildItem $stagePath -Filter $pattern -Recurse | Remove-Item -Force
           }
-          # Reset exit code after robocopy (exit codes 1-7 are success)
-          $LASTEXITCODE = 0
 
-          # Copy plugin.json and Images folder
-          Copy-Item "${{ env.PLUGIN_DIR }}/plugin.json" $artifactPath
+          # Copy plugin.json and Images
+          Copy-Item "${{ env.PLUGIN_DIR }}/plugin.json" $stagePath -Force
           if (Test-Path "${{ env.PLUGIN_DIR }}/Images") {
-            Copy-Item "${{ env.PLUGIN_DIR }}/Images" $artifactPath -Recurse
+            Copy-Item "${{ env.PLUGIN_DIR }}/Images" $stagePath -Recurse -Force
           }
 
-          # PERFORMANCE: Remove unnecessary files using .NET APIs (faster than Remove-Item loop)
-          $filesToRemove = @(
-            'PowerToys.Common.UI.dll', 'PowerToys.Common.UI.pdb',
-            'PowerToys.ManagedCommon.dll', 'PowerToys.ManagedCommon.pdb',
-            'PowerToys.Settings.UI.Lib.dll', 'PowerToys.Settings.UI.Lib.pdb',
-            'Wox.Infrastructure.dll', 'Wox.Infrastructure.pdb',
-            'Wox.Plugin.dll', 'Wox.Plugin.pdb'
-          )
-
-          foreach ($file in $filesToRemove) {
-            $filePath = Join-Path $artifactPath $file
-            if (Test-Path $filePath -PathType Leaf) {
-              [System.IO.File]::Delete($filePath)
-            }
-          }
-
-          # PERFORMANCE: Use .NET compression (faster than Compress-Archive for large files)
+          # Create ZIP
           Add-Type -Assembly System.IO.Compression.FileSystem
           $compressionLevel = [System.IO.Compression.CompressionLevel]::Optimal
           [System.IO.Compression.ZipFile]::CreateFromDirectory(
             (Resolve-Path "artifacts/${{ env.ARTIFACT_PREFIX }}-v$version-$platform").Path,
             (Join-Path (Get-Location) $zipPath),
             $compressionLevel,
-            $false  # Don't include base directory
+            $false
           )
 
           Write-Host "✓ Created $zipPath"
-          exit 0
 
-      # OPTIMIZATION: Upload only the final ZIP, not intermediate folders
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: packagemanager-${{ matrix.platform }}
           path: artifacts/*.zip
-          retention-days: 7 # Reduce storage costs
-          compression-level: 0 # Already compressed, skip re-compression
+          retention-days: 7
+          compression-level: 0
 
   release:
     needs: build
@@ -194,7 +155,6 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
 
     steps:
-      # OPTIMIZATION: Minimal checkout for release notes only
       - name: Checkout (minimal)
         uses: actions/checkout@v4
         with:
@@ -203,28 +163,24 @@ jobs:
             README.md
             assets
 
-      # OPTIMIZATION: Fast version extraction with bash
       - name: Extract version
         id: version
         run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
-      # OPTIMIZATION: Download artifacts with merge for faster processing
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
           merge-multiple: true
 
-      # OPTIMIZATION: Parallel checksum generation and artifact preparation
       - name: Prepare release assets
         run: |
           set -e
           VERSION="${{ steps.version.outputs.VERSION }}"
           mkdir -p release
 
-          # PERFORMANCE: Process both platforms in parallel
+          # Process both platforms in parallel
           (
-            # x64 processing
             if [ -f "artifacts/${{ env.ARTIFACT_PREFIX }}-${VERSION}-x64.zip" ]; then
               cp "artifacts/${{ env.ARTIFACT_PREFIX }}-${VERSION}-x64.zip" release/
               sha256sum "release/${{ env.ARTIFACT_PREFIX }}-${VERSION}-x64.zip" | awk '{print toupper($1) "  " $2}' > "release/${{ env.ARTIFACT_PREFIX }}-${VERSION}-x64.zip.sha256"
@@ -232,17 +188,14 @@ jobs:
           ) &
 
           (
-            # ARM64 processing
             if [ -f "artifacts/${{ env.ARTIFACT_PREFIX }}-${VERSION}-ARM64.zip" ]; then
               cp "artifacts/${{ env.ARTIFACT_PREFIX }}-${VERSION}-ARM64.zip" release/
               sha256sum "release/${{ env.ARTIFACT_PREFIX }}-${VERSION}-ARM64.zip" | awk '{print toupper($1) "  " $2}' > "release/${{ env.ARTIFACT_PREFIX }}-${VERSION}-ARM64.zip.sha256"
             fi
           ) &
 
-          # Wait for parallel jobs
           wait
 
-          # PERFORMANCE: Create combined checksums efficiently
           {
             echo "SHA256 Checksums for PackageManager Plugin v${VERSION}"
             echo "Generated: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
@@ -250,16 +203,13 @@ jobs:
             cat release/*.sha256 2>/dev/null || true
           } > release/checksums.txt
 
-          # Verify all files exist
           ls -lh release/
 
-      # OPTIMIZATION: Generate release notes efficiently
       - name: Generate release notes
         id: notes
         run: |
           VERSION="${{ steps.version.outputs.VERSION }}"
 
-          # PERFORMANCE: Use heredoc for faster string building
           cat << 'EOF' > notes.md
           # 📦 PackageManager v$VERSION – Package Search Made Easy!
 
@@ -316,17 +266,14 @@ jobs:
           Made with ❤️ by [ruslanlap](https://github.com/ruslanlap)
           EOF
 
-          # Replace version placeholder
           sed -i "s/\$VERSION/$VERSION/g" notes.md
 
-          # Output for GitHub Actions
           {
             echo 'NOTES<<EOFMARKER'
             cat notes.md
             echo 'EOFMARKER'
           } >> $GITHUB_OUTPUT
 
-      # OPTIMIZATION: Use latest release action with better performance
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -336,11 +283,10 @@ jobs:
           prerelease: false
           files: release/*
           fail_on_unmatched_files: true
-          generate_release_notes: false # We provide custom notes
+          generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # OPTIONAL: Post-release cleanup job
   cleanup:
     needs: release
     runs-on: ubuntu-latest
