@@ -11,15 +11,15 @@ Search across NPM, NuGet, and PyPI with `Alt+Space` → `pm react` → Done! ✨
 
 <!-- Badges -->
 
-![Build](https://img.shields.io/badge/build-passing-brightgreen?style=flat-square)
-![Latest Release](https://img.shields.io/badge/latest-no%20releases%20found-red?style=flat-square)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/ruslanlap/PowerToysRun-PackageManager/build-and-release.yml?branch=master&style=flat-square)](https://github.com/ruslanlap/PowerToysRun-PackageManager/actions)
+[![Latest Release](https://img.shields.io/github/v/release/ruslanlap/PowerToysRun-PackageManager?label=latest&style=flat-square)](https://github.com/ruslanlap/PowerToysRun-PackageManager/releases/latest)
 ![Maintenance](https://img.shields.io/maintenance/yes/2025?style=flat-square)
 ![C# .NET 9.0](https://img.shields.io/badge/C%23-.NET%209.0-512BD4?style=flat-square)
 ![Version](https://img.shields.io/badge/version-v1.0.0-brightgreen?style=flat-square)
 ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)
-![GitHub stars](https://img.shields.io/badge/stars-0-yellow?style=flat-square)
-![GitHub issues](https://img.shields.io/badge/issues-0%20open-brightgreen?style=flat-square)
-![Downloads](https://img.shields.io/badge/downloads-no%20releases%20found-red?style=flat-square)
+[![GitHub stars](https://img.shields.io/github/stars/ruslanlap/PowerToysRun-PackageManager?style=flat-square)](https://github.com/ruslanlap/PowerToysRun-PackageManager/stargazers)
+[![GitHub issues](https://img.shields.io/github/issues/ruslanlap/PowerToysRun-PackageManager?style=flat-square)](https://github.com/ruslanlap/PowerToysRun-PackageManager/issues)
+[![Downloads](https://img.shields.io/github/downloads/ruslanlap/PowerToysRun-PackageManager/total?style=flat-square)](https://github.com/ruslanlap/PowerToysRun-PackageManager/releases/latest)
 ![Made with Love](https://img.shields.io/badge/Made%20with-❤️-red?style=flat-square)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey?style=flat-square)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
@@ -27,18 +27,13 @@ Search across NPM, NuGet, and PyPI with `Alt+Space` → `pm react` → Done! ✨
 </div>
 
 <div align="center">
-  <a href="#-quick-start">
+  <a href="https://github.com/ruslanlap/PowerToysRun-PackageManager/releases/download/v1.0.0/PackageManager-1.0.0-x64.zip">
     <img src="https://img.shields.io/badge/⬇️_DOWNLOAD-x64-blue?style=for-the-badge&logo=github" alt="Download x64">
   </a>
-  <a href="#-quick-start">
+  <a href="https://github.com/ruslanlap/PowerToysRun-PackageManager/releases/download/v1.0.0/PackageManager-1.0.0-ARM64.zip">
     <img src="https://img.shields.io/badge/⬇️_DOWNLOAD-ARM64-blue?style=for-the-badge&logo=github" alt="Download ARM64">
   </a>
 </div>
-
-> **Note:** After creating your first release with tag `v1.0.0`, the badges and download links will automatically update.
-> </text>
-
-<old_text line=163>
 
 ### 1️⃣ **Download & Extract** (30 seconds)
 
