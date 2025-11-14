@@ -479,6 +479,19 @@ dotnet build Community.PowerToys.Run.Plugin.PackageManager/Community.PowerToys.R
 
 </details>
 
+<details>
+<summary><b>⚠️ Cached Results - Important Note</b></summary>
+
+**To see updated cached results**, sometimes you need to press **Space** or press **Backspace** to trigger a fresh search and see the updated results.
+
+This happens because the plugin uses intelligent caching (10-minute cache) to speed up searches. If you're seeing stale results, try:
+
+1. Press **Space** or **Backspace** to trigger a fresh search
+2. Or press Backspace to delete and retype the last character
+3. This will force a new search and refresh the cached results
+
+</details>
+
 ---
 
 ## ❓ FAQ
