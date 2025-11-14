@@ -1,13 +1,13 @@
-name: Build and Release PackageManager Plugin
+name: 📦 Build & Release PackageManager PowerToys Plugin
 
 on:
   push:
     tags:
       - 'v*'
-  pull_request:
-    branches:
-      - master
-  workflow_dispatch:
+
+env:
+  PLUGIN_DIR: PackageManager/Community.PowerToys.Run.Plugin.PackageManager
+  ARTIFACT_PREFIX: PackageManager
 
 permissions:
   contents: write
@@ -18,136 +18,83 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  DOTNET_VERSION: '9.0.x'
-  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 'true'
-  DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
-  DOTNET_NOLOGO: 'true'
-  MSBUILDDISABLENODEREUSE: '1'
-  PLUGIN_DIR: PackageManager/Community.PowerToys.Run.Plugin.PackageManager
-  ARTIFACT_PREFIX: PackageManager
-
 jobs:
   build:
     runs-on: windows-latest
     strategy:
       matrix:
-        platform: [x64, ARM64]
-      fail-fast: false
+        platform: [x64, arm64]
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-          sparse-checkout: |
-            PackageManager
-            .github
-            global.json
 
       - name: Cache NuGet packages
         uses: actions/cache@v4
         with:
           path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/*.props', 'global.json') }}
-          restore-keys: |
-            ${{ runner.os }}-nuget-
+          key: ${{ runner.os }}-nuget-${{ hashFiles('PackageManager/**/*.csproj') }}
+          restore-keys: ${{ runner.os }}-nuget-
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
-          global-json-file: global.json
+          dotnet-version: '9.0.x'
 
-      - name: Extract version
-        id: version
+      - name: Get version
+        id: get_version
+        shell: bash
+        run: |
+          if [[ $GITHUB_REF == refs/tags/v* ]]; then
+            echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+            echo "IS_TAG=true" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=$(date +'%Y.%m.%d')-$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_OUTPUT
+            echo "IS_TAG=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 🚀 Build & stage plugin
         shell: pwsh
         run: |
-          $version = if ($env:GITHUB_REF -match '^refs/tags/v(.+)$') {
-            $matches[1]
-          } else {
-            "$(Get-Date -Format 'yyyy.MM.dd')-$($env:GITHUB_SHA.Substring(0,7))"
-          }
-          "VERSION=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          Write-Host "Version: $version"
-
-      - name: Update plugin version
-        shell: pwsh
-        run: |
+          # 1. Inject version
           $pluginJson = "${{ env.PLUGIN_DIR }}/plugin.json"
-          $content = Get-Content $pluginJson -Raw | ConvertFrom-Json
-          $content.Version = "${{ steps.version.outputs.VERSION }}"
+          $content    = Get-Content $pluginJson -Raw | ConvertFrom-Json
+          $content.Version = "${{ steps.get_version.outputs.VERSION }}"
           $content | ConvertTo-Json -Depth 10 | Set-Content $pluginJson -Encoding UTF8
-          Write-Host "Updated plugin.json to version ${{ steps.version.outputs.VERSION }}"
 
-      - name: Publish plugin for Windows
-        shell: pwsh
-        run: |
-          $rid = if ('${{ matrix.platform }}' -eq 'x64') { 'win-x64' } else { 'win-arm64' }
-
-          Write-Host "Publishing for $rid..."
-          dotnet publish `
-            "${{ env.PLUGIN_DIR }}/Community.PowerToys.Run.Plugin.PackageManager.csproj" `
+          # 2. Build
+          dotnet build "${{ env.PLUGIN_DIR }}/Community.PowerToys.Run.Plugin.PackageManager.csproj" `
             -c Release `
-            -r $rid `
-            -p:Platform=${{ matrix.platform }} `
-            -p:PublishSingleFile=false `
-            -p:SelfContained=false `
-            --nologo `
-            -v:minimal
+            -p:Platform="${{ matrix.platform }}"
 
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # 3. Locate binaries
+          $outDir = "${{ env.PLUGIN_DIR }}/bin/${{ matrix.platform }}/Release"
+          $netDir = Get-ChildItem $outDir -Directory -Filter "net*-windows*" |
+                    Select-Object -First 1 -ExpandProperty FullName
+          if (-not $netDir) { throw "Build output not found" }
 
-      - name: Prepare artifacts
+          # 4. Stage folder
+          $stage = "artifacts/${{ env.ARTIFACT_PREFIX }}-${{ steps.get_version.outputs.VERSION }}-${{ matrix.platform }}/${{ env.ARTIFACT_PREFIX }}"
+          New-Item $stage -ItemType Directory -Force | Out-Null
+
+          # 5. Copy files
+          Copy-Item "$netDir/*" $stage -Recurse -Exclude @(
+            "PowerToys*.dll","PowerToys*.pdb","Wox*.dll","Wox*.pdb"
+          )
+          Copy-Item $pluginJson $stage
+          Copy-Item "${{ env.PLUGIN_DIR }}/Images" $stage -Recurse -ErrorAction SilentlyContinue
+
+      - name: 📦 Zip & upload artifact
         shell: pwsh
         run: |
-          $ErrorActionPreference = 'Stop'
-          $version = '${{ steps.version.outputs.VERSION }}'
-          $platform = '${{ matrix.platform }}'
-          $rid = if ($platform -eq 'x64') { 'win-x64' } else { 'win-arm64' }
+          $zip = "artifacts/${{ env.ARTIFACT_PREFIX }}-${{ steps.get_version.outputs.VERSION }}-${{ matrix.platform }}.zip"
+          $src = "artifacts/${{ env.ARTIFACT_PREFIX }}-${{ steps.get_version.outputs.VERSION }}-${{ matrix.platform }}/${{ env.ARTIFACT_PREFIX }}"
+          Compress-Archive -Path $src -DestinationPath $zip
 
-          # Paths
-          $publishPath = "${{ env.PLUGIN_DIR }}/bin/$platform/Release/net9.0-windows10.0.22621.0/$rid/publish"
-          $stagePath = "artifacts/${{ env.ARTIFACT_PREFIX }}-v$version-$platform/${{ env.ARTIFACT_PREFIX }}"
-          $zipPath = "artifacts/${{ env.ARTIFACT_PREFIX }}-$version-$platform.zip"
-
-          # Create staging directory
-          [void](New-Item -ItemType Directory -Force -Path $stagePath)
-
-          # Copy all published files
-          Copy-Item "$publishPath\*" $stagePath -Recurse -Force
-
-          # Remove PowerToys/Wox dependencies (they're provided by PowerToys)
-          $excludePatterns = @('PowerToys*.dll', 'PowerToys*.pdb', 'Wox*.dll', 'Wox*.pdb')
-          foreach ($pattern in $excludePatterns) {
-            Get-ChildItem $stagePath -Filter $pattern -Recurse | Remove-Item -Force
-          }
-
-          # Copy plugin.json and Images
-          Copy-Item "${{ env.PLUGIN_DIR }}/plugin.json" $stagePath -Force
-          if (Test-Path "${{ env.PLUGIN_DIR }}/Images") {
-            Copy-Item "${{ env.PLUGIN_DIR }}/Images" $stagePath -Recurse -Force
-          }
-
-          # Create ZIP
-          Add-Type -Assembly System.IO.Compression.FileSystem
-          $compressionLevel = [System.IO.Compression.CompressionLevel]::Optimal
-          [System.IO.Compression.ZipFile]::CreateFromDirectory(
-            (Resolve-Path "artifacts/${{ env.ARTIFACT_PREFIX }}-v$version-$platform").Path,
-            (Join-Path (Get-Location) $zipPath),
-            $compressionLevel,
-            $false
-          )
-
-          Write-Host "✓ Created $zipPath"
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: packagemanager-${{ matrix.platform }}
+          name: build-artifacts-${{ matrix.platform }}
           path: artifacts/*.zip
-          retention-days: 7
-          compression-level: 0
 
   release:
     needs: build
@@ -155,105 +102,62 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
 
     steps:
-      - name: Checkout (minimal)
+      - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-          sparse-checkout: |
-            README.md
-            assets
 
-      - name: Extract version
-        id: version
+      - name: Get version from tag
+        id: get_version
         run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
-      - name: Download artifacts
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          path: artifacts
-          merge-multiple: true
+          path: downloaded-artifacts
 
-      - name: Prepare release assets
+      - name: Prepare artifacts for release
         run: |
-          set -e
-          VERSION="${{ steps.version.outputs.VERSION }}"
-          mkdir -p release
+          mkdir -p release-artifacts
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          cp downloaded-artifacts/build-artifacts-x64/${{ env.ARTIFACT_PREFIX }}-${VERSION}-x64.zip release-artifacts/
+          cp downloaded-artifacts/build-artifacts-arm64/${{ env.ARTIFACT_PREFIX }}-${VERSION}-arm64.zip release-artifacts/
 
-          # Process both platforms in parallel
-          (
-            if [ -f "artifacts/${{ env.ARTIFACT_PREFIX }}-${VERSION}-x64.zip" ]; then
-              cp "artifacts/${{ env.ARTIFACT_PREFIX }}-${VERSION}-x64.zip" release/
-              sha256sum "release/${{ env.ARTIFACT_PREFIX }}-${VERSION}-x64.zip" | awk '{print toupper($1) "  " $2}' > "release/${{ env.ARTIFACT_PREFIX }}-${VERSION}-x64.zip.sha256"
-            fi
-          ) &
-
-          (
-            if [ -f "artifacts/${{ env.ARTIFACT_PREFIX }}-${VERSION}-ARM64.zip" ]; then
-              cp "artifacts/${{ env.ARTIFACT_PREFIX }}-${VERSION}-ARM64.zip" release/
-              sha256sum "release/${{ env.ARTIFACT_PREFIX }}-${VERSION}-ARM64.zip" | awk '{print toupper($1) "  " $2}' > "release/${{ env.ARTIFACT_PREFIX }}-${VERSION}-ARM64.zip.sha256"
-            fi
-          ) &
-
-          wait
-
-          {
-            echo "SHA256 Checksums for PackageManager Plugin v${VERSION}"
-            echo "Generated: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
-            echo ""
-            cat release/*.sha256 2>/dev/null || true
-          } > release/checksums.txt
-
-          ls -lh release/
-
-      - name: Generate release notes
-        id: notes
+      - name: Prepare release notes
+        id: release_notes
         run: |
-          VERSION="${{ steps.version.outputs.VERSION }}"
-
-          cat << 'EOF' > notes.md
-          # 📦 PackageManager v$VERSION – Package Search Made Easy!
-
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          cat > release_notes.md << EOL
+          # 📦 PackageManager v${VERSION} – Search NPM, NuGet & PyPI Instantly!
           <p align="center">
             <img src="https://github.com/ruslanlap/PowerToysRun-PackageManager/raw/master/assets/logo.png" width="128" alt="PackageManager Logo"/>
           </p>
 
           ## ✨ What's New
-          - 📦 **NPM Package Search** - Search Node.js packages instantly
-          - 🎯 **NuGet Package Search** - Find .NET packages with ease
-          - 🐍 **PyPI Package Search** - Discover Python packages quickly
-          - 🔍 **Smart Search** - Handles scoped packages, variations, and aliases
-          - ⚡ **Lightning Fast** - Parallel searches with intelligent caching
-          - 🎨 **Theme-Aware Icons** - Beautiful dark/light mode support
-          - 📋 **Quick Actions** - Copy install commands, URLs, or package names
-          - 🌐 **Direct Links** - Open package pages with one click
+          - 🔍 **Multi-Registry Search** (NPM, NuGet, PyPI simultaneously)
+          - ⚡ **Lightning Fast** (parallel API searches with intelligent caching)
+          - 🎯 **Smart Search** (handles scoped packages, variations, and aliases)
+          - 🎨 **Theme-Aware Icons** (beautiful icons for dark and light modes)
+          - 📋 **Quick Actions** (copy install commands, URLs, or package names)
+          - 🌐 **Direct Links** (open package pages with one click)
 
           ## 🚀 Install
-          1. Download ZIP for your architecture (x64 / ARM64)
-          2. Extract to `%LOCALAPPDATA%\Microsoft\PowerToys\PowerToys Run\Plugins\PackageManager\`
-          3. Restart PowerToys → press `Alt+Space` → type `pm react`
+          1. Download ZIP for your architecture (x64 / ARM64)  
+          2. Extract to \`%LOCALAPPDATA%\Microsoft\PowerToys\PowerToys Run\Plugins\PackageManager\`  
+          3. Restart PowerToys → press \`Alt+Space\` → type \`pm <package>\`
 
           ## 💡 Quick Examples
-          | Command | Description |
-          |---------|-------------|
-          | `pm react` | Search all registries for "react" |
-          | `pm npm express` | Search only NPM for "express" |
-          | `pm nuget entity` | Search only NuGet for "entity" |
-          | `pm pip django` | Search only PyPI for "django" |
-          | `pm npm @types/node` | Search for scoped packages |
+          | Command | Result |
+          |---------|--------|
+          | \`pm react\` | Search all registries for "react" |
+          | \`pm npm express\` | Search only NPM packages |
+          | \`pm nuget entity\` | Search only NuGet packages |
+          | \`pm pip django\` | Search only PyPI packages |
+          | \`pm npm @types/node\` | Search scoped NPM packages |
 
-          ## ⌨️ Keyboard Shortcuts
-          - **Enter** - Copy install command to clipboard
-          - **Ctrl+C** - Copy package name
-          - **Ctrl+O** - Open package page in browser
-          - **Ctrl+U** - Copy package URL
-
-          ## 🎯 Features
-          - **Multi-Registry Search**: Search NPM, NuGet, and PyPI simultaneously
-          - **Smart Caching**: 10-minute cache for faster repeated searches
+          ## 🔧 Configuration
+          - **Multi-Registry**: Search NPM, NuGet, PyPI simultaneously or filtered
+          - **Smart Caching**: 10-minute cache with LRU eviction for instant results
           - **Query Variations**: Automatically tries package name variations
-          - **Theme Support**: Icons adapt to Windows light/dark theme
-          - **Zero Config**: No API keys required, works out of the box
-          - **Fast Performance**: Parallel API calls, 0.5-2 second searches
+          - **Keyboard Shortcuts**: Enter (copy command), Ctrl+O (open page), Ctrl+U (copy URL)
 
           ## 📚 Documentation
           Full documentation available in the [README](https://github.com/ruslanlap/PowerToysRun-PackageManager#readme)
@@ -261,39 +165,38 @@ jobs:
           ## 💫 Contribute
           Found a bug or have an idea? [Open an issue](https://github.com/ruslanlap/PowerToysRun-PackageManager/issues)
 
-          ---
-
           Made with ❤️ by [ruslanlap](https://github.com/ruslanlap)
-          EOF
+          EOL
+          echo "RELEASE_NOTES<<EOF" >> $GITHUB_OUTPUT
+          cat release_notes.md >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
-          sed -i "s/\$VERSION/$VERSION/g" notes.md
-
+      - name: Generate SHA256 checksums
+        run: |
+          cd release-artifacts
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          for f in *.zip; do
+            sha256sum "$f" | tee "$f.sha256"
+          done
           {
-            echo 'NOTES<<EOFMARKER'
-            cat notes.md
-            echo 'EOFMARKER'
-          } >> $GITHUB_OUTPUT
+            echo "SHA256 Checksums for PackageManager Plugin v${VERSION}"
+            echo "Generated on: $(date -u)"
+            echo
+            cat *.sha256
+          } > checksums.txt
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
         with:
-          name: PackageManager v${{ steps.version.outputs.VERSION }}
-          body: ${{ steps.notes.outputs.NOTES }}
+          name: PackageManager v${{ steps.get_version.outputs.VERSION }}
+          body: ${{ steps.release_notes.outputs.RELEASE_NOTES }}
           draft: false
           prerelease: false
-          files: release/*
-          fail_on_unmatched_files: true
-          generate_release_notes: false
+          files: |
+            release-artifacts/${{ env.ARTIFACT_PREFIX }}-${{ steps.get_version.outputs.VERSION }}-x64.zip
+            release-artifacts/${{ env.ARTIFACT_PREFIX }}-${{ steps.get_version.outputs.VERSION }}-arm64.zip
+            release-artifacts/*.sha256
+            release-artifacts/checksums.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  cleanup:
-    needs: release
-    runs-on: ubuntu-latest
-    if: always()
-    steps:
-      - name: Clean up artifacts
-        uses: geekyeggo/delete-artifact@v5
-        with:
-          name: packagemanager-*
-          failOnError: false
+          
