@@ -1,0 +1,223 @@
+name: 📦 Build & Release PackageManager PowerToys Plugin
+
+on:
+    push:
+        tags:
+            - "v*"
+        branches:
+            - master
+    pull_request:
+        branches:
+            - master
+
+env:
+    PLUGIN_DIR: PackageManager/Community.PowerToys.Run.Plugin.PackageManager
+    ARTIFACT_PREFIX: PackageManager
+
+permissions:
+    contents: write
+    issues: read
+    pull-requests: read
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    build:
+        runs-on: windows-latest
+        strategy:
+            matrix:
+                platform: [x64, ARM64]
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Cache NuGet packages
+              uses: actions/cache@v4
+              with:
+                  path: ~/.nuget/packages
+                  key: ${{ runner.os }}-nuget-${{ hashFiles('PackageManager/**/*.csproj') }}
+                  restore-keys: ${{ runner.os }}-nuget-
+
+            - name: Setup .NET
+              uses: actions/setup-dotnet@v4
+              with:
+                  dotnet-version: "9.0.x"
+
+            - name: Get version
+              id: get_version
+              shell: bash
+              run: |
+                  if [[ $GITHUB_REF == refs/tags/v* ]]; then
+                    echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+                    echo "IS_TAG=true" >> $GITHUB_OUTPUT
+                  else
+                    echo "VERSION=$(date +'%Y.%m.%d')-$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_OUTPUT
+                    echo "IS_TAG=false" >> $GITHUB_OUTPUT
+                  fi
+
+            - name: 📦 Build & stage plugin
+              shell: pwsh
+              run: |
+                  # 1. Inject version into plugin.json
+                  $pluginJson = "${{ env.PLUGIN_DIR }}/plugin.json"
+                  $content    = Get-Content $pluginJson -Raw | ConvertFrom-Json
+                  $content.Version = "${{ steps.get_version.outputs.VERSION }}"
+                  $content | ConvertTo-Json -Depth 10 | Set-Content $pluginJson -Encoding UTF8
+
+                  # 2. Build the plugin
+                  dotnet build "${{ env.PLUGIN_DIR }}/Community.PowerToys.Run.Plugin.PackageManager.csproj" `
+                    -c Release `
+                    -p:Platform="${{ matrix.platform }}"
+
+                  # 3. Locate build output directory
+                  $outDir = "${{ env.PLUGIN_DIR }}/bin/${{ matrix.platform }}/Release"
+                  $netDir = Get-ChildItem $outDir -Directory -Filter "net*-windows*" |
+                            Select-Object -First 1 -ExpandProperty FullName
+                  if (-not $netDir) { throw "Build output not found in $outDir" }
+
+                  # 4. Create staging directory
+                  $stage = "artifacts/${{ env.ARTIFACT_PREFIX }}-${{ steps.get_version.outputs.VERSION }}-${{ matrix.platform }}/${{ env.ARTIFACT_PREFIX }}"
+                  New-Item $stage -ItemType Directory -Force | Out-Null
+
+                  # 5. Copy plugin files (exclude PowerToys and Wox dependencies)
+                  Copy-Item "$netDir/*" $stage -Recurse -Exclude @(
+                    "PowerToys*.dll","PowerToys*.pdb","Wox*.dll","Wox*.pdb"
+                  )
+                  Copy-Item $pluginJson $stage
+                  Copy-Item "${{ env.PLUGIN_DIR }}/Images" $stage -Recurse -ErrorAction SilentlyContinue
+
+            - name: 📦 Zip & upload artifact
+              shell: pwsh
+              run: |
+                  $zip = "artifacts/${{ env.ARTIFACT_PREFIX }}-${{ steps.get_version.outputs.VERSION }}-${{ matrix.platform }}.zip"
+                  $src = "artifacts/${{ env.ARTIFACT_PREFIX }}-${{ steps.get_version.outputs.VERSION }}-${{ matrix.platform }}/${{ env.ARTIFACT_PREFIX }}"
+                  Compress-Archive -Path $src -DestinationPath $zip
+
+            - uses: actions/upload-artifact@v4
+              with:
+                  name: build-artifacts-${{ matrix.platform }}
+                  path: artifacts/*.zip
+
+    release:
+        needs: build
+        runs-on: ubuntu-latest
+        if: startsWith(github.ref, 'refs/tags/v')
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Get version from tag
+              id: get_version
+              run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+            - name: Download all artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  path: downloaded-artifacts
+
+            - name: Prepare artifacts for release
+              run: |
+                  mkdir -p release-artifacts
+                  VERSION="${{ steps.get_version.outputs.VERSION }}"
+                  cp downloaded-artifacts/build-artifacts-x64/${{ env.ARTIFACT_PREFIX }}-${VERSION}-x64.zip release-artifacts/
+                  cp downloaded-artifacts/build-artifacts-ARM64/${{ env.ARTIFACT_PREFIX }}-${VERSION}-ARM64.zip release-artifacts/
+
+            - name: Prepare release notes
+              id: release_notes
+              run: |
+                  VERSION="${{ steps.get_version.outputs.VERSION }}"
+                  cat > release_notes.md << 'EOL'
+                  # 📦 PackageManager v${{ steps.get_version.outputs.VERSION }} – Package Search Made Easy!
+
+                  <p align="center">
+                    <img src="https://github.com/ruslanlap/PowerToysRun-PackageManager/raw/master/assets/logo.png" width="128" alt="PackageManager Logo"/>
+                  </p>
+
+                  ## ✨ What's New
+                  - 📦 **NPM Package Search** - Search Node.js packages instantly
+                  - 🎯 **NuGet Package Search** - Find .NET packages with ease
+                  - 🐍 **PyPI Package Search** - Discover Python packages quickly
+                  - 🔍 **Smart Search** - Handles scoped packages, variations, and aliases
+                  - ⚡ **Lightning Fast** - Parallel searches with intelligent caching
+                  - 🎨 **Theme-Aware Icons** - Beautiful dark/light mode support
+                  - 📋 **Quick Actions** - Copy install commands, URLs, or package names
+                  - 🌐 **Direct Links** - Open package pages with one click
+
+                  ## 🚀 Install
+                  1. Download ZIP for your architecture (x64 / ARM64)
+                  2. Extract to `%LOCALAPPDATA%\Microsoft\PowerToys\PowerToys Run\Plugins\PackageManager\`
+                  3. Restart PowerToys → press `Alt+Space` → type `pm react`
+
+                  ## 💡 Quick Examples
+                  | Command | Description |
+                  |---------|-------------|
+                  | `pm react` | Search all registries for "react" |
+                  | `pm npm express` | Search only NPM for "express" |
+                  | `pm nuget entity` | Search only NuGet for "entity" |
+                  | `pm pip django` | Search only PyPI for "django" |
+                  | `pm npm @types/node` | Search for scoped packages |
+
+                  ## ⌨️ Keyboard Shortcuts
+                  - **Enter** - Copy install command to clipboard
+                  - **Ctrl+C** - Copy package name
+                  - **Ctrl+O** - Open package page in browser
+                  - **Ctrl+U** - Copy package URL
+
+                  ## 🎯 Features
+                  - **Multi-Registry Search**: Search NPM, NuGet, and PyPI simultaneously
+                  - **Smart Caching**: 10-minute cache for faster repeated searches
+                  - **Query Variations**: Automatically tries package name variations
+                  - **Theme Support**: Icons adapt to Windows light/dark theme
+                  - **Zero Config**: No API keys required, works out of the box
+                  - **Fast Performance**: Parallel API calls, 0.5-2 second searches
+
+                  ## 📚 Documentation
+                  Full documentation available in the [README](https://github.com/ruslanlap/PowerToysRun-PackageManager#readme)
+
+                  ## 💫 Contribute
+                  Found a bug or have an idea? [Open an issue](https://github.com/ruslanlap/PowerToysRun-PackageManager/issues)
+
+                  ---
+
+                  Made with ❤️ by [ruslanlap](https://github.com/ruslanlap)
+                  EOL
+
+                  # Replace placeholder with actual version
+                  sed -i "s/\${{ steps.get_version.outputs.VERSION }}/${VERSION}/g" release_notes.md
+
+                  echo "RELEASE_NOTES<<EOF" >> $GITHUB_OUTPUT
+                  cat release_notes.md >> $GITHUB_OUTPUT
+                  echo "EOF" >> $GITHUB_OUTPUT
+
+            - name: Generate SHA256 checksums
+              run: |
+                  cd release-artifacts
+                  VERSION="${{ steps.get_version.outputs.VERSION }}"
+                  for f in *.zip; do
+                    sha256sum "$f" | tee "$f.sha256"
+                  done
+                  {
+                    echo "SHA256 Checksums for PackageManager Plugin v${VERSION}"
+                    echo "Generated on: $(date -u)"
+                    echo
+                    cat *.sha256
+                  } > checksums.txt
+
+            - name: Create Release
+              uses: softprops/action-gh-release@v1
+              with:
+                  name: PackageManager v${{ steps.get_version.outputs.VERSION }}
+                  body: ${{ steps.release_notes.outputs.RELEASE_NOTES }}
+                  draft: false
+                  prerelease: false
+                  files: |
+                      release-artifacts/${{ env.ARTIFACT_PREFIX }}-${{ steps.get_version.outputs.VERSION }}-x64.zip
+                      release-artifacts/${{ env.ARTIFACT_PREFIX }}-${{ steps.get_version.outputs.VERSION }}-ARM64.zip
+                      release-artifacts/*.sha256
+                      release-artifacts/checksums.txt
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,14 @@
+{
+  "ID": "E5B5E2D34F4C4E1A9B2F6C8A7D5E4F3B",
+  "ActionKeyword": "pm",
+  "IsGlobal": false,
+  "Name": "PackageManager",
+  "Author": "ruslanlap",
+  "Version": "1.0.0",
+  "Language": "csharp",
+  "Website": "https://github.com/hlaueriksson/Community.PowerToysRun-PackageManager",
+  "ExecuteFileName": "Community.PowerToys.Run.Plugin.PackageManager.dll",
+  "IcoPathDark": "Images\\packagemanager.dark.png",
+  "IcoPathLight": "Images\\packagemanager.light.png",
+  "DynamicLoading": false
+}
