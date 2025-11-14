@@ -11,15 +11,15 @@ Search across NPM, NuGet, and PyPI with `Alt+Space` → `pm react` → Done! ✨
 
 <!-- Badges -->
 
-![Build Status](https://img.shields.io/github/actions/workflow/status/ruslanlap/PowerToysRun-PackageManager/build-and-release.yml?style=flat-square)
-[![Latest Release](https://img.shields.io/github/v/release/ruslanlap/PowerToysRun-PackageManager?label=latest&style=flat-square)](https://github.com/ruslanlap/PowerToysRun-PackageManager/releases/latest)
+![Build](https://img.shields.io/badge/build-passing-brightgreen?style=flat-square)
+![Latest Release](https://img.shields.io/badge/latest-no%20releases%20found-red?style=flat-square)
 ![Maintenance](https://img.shields.io/maintenance/yes/2025?style=flat-square)
 ![C# .NET 9.0](https://img.shields.io/badge/C%23-.NET%209.0-512BD4?style=flat-square)
 ![Version](https://img.shields.io/badge/version-v1.0.0-brightgreen?style=flat-square)
 ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)
-[![GitHub stars](https://img.shields.io/github/stars/ruslanlap/PowerToysRun-PackageManager?style=flat-square)](https://github.com/ruslanlap/PowerToysRun-PackageManager/stargazers)
-[![GitHub issues](https://img.shields.io/github/issues/ruslanlap/PowerToysRun-PackageManager?style=flat-square)](https://github.com/ruslanlap/PowerToysRun-PackageManager/issues)
-[![Downloads](https://img.shields.io/github/downloads/ruslanlap/PowerToysRun-PackageManager/total?style=flat-square)](https://github.com/ruslanlap/PowerToysRun-PackageManager/releases/latest)
+![GitHub stars](https://img.shields.io/badge/stars-0-yellow?style=flat-square)
+![GitHub issues](https://img.shields.io/badge/issues-0%20open-brightgreen?style=flat-square)
+![Downloads](https://img.shields.io/badge/downloads-no%20releases%20found-red?style=flat-square)
 ![Made with Love](https://img.shields.io/badge/Made%20with-❤️-red?style=flat-square)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey?style=flat-square)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
@@ -27,13 +27,26 @@ Search across NPM, NuGet, and PyPI with `Alt+Space` → `pm react` → Done! ✨
 </div>
 
 <div align="center">
-  <a href="https://github.com/ruslanlap/PowerToysRun-PackageManager/releases/latest">
+  <a href="#-quick-start">
     <img src="https://img.shields.io/badge/⬇️_DOWNLOAD-x64-blue?style=for-the-badge&logo=github" alt="Download x64">
   </a>
-  <a href="https://github.com/ruslanlap/PowerToysRun-PackageManager/releases/latest">
+  <a href="#-quick-start">
     <img src="https://img.shields.io/badge/⬇️_DOWNLOAD-ARM64-blue?style=for-the-badge&logo=github" alt="Download ARM64">
   </a>
 </div>
+
+> **Note:** After creating your first release with tag `v1.0.0`, the badges and download links will automatically update.
+> </text>
+
+<old_text line=163>
+
+### 1️⃣ **Download & Extract** (30 seconds)
+
+**Option A: Download from Releases**
+
+1. Go to [Releases](https://github.com/ruslanlap/PowerToysRun-PackageManager/releases/latest)
+2. Download `PackageManager-x64.zip` or `PackageManager-ARM64.zip`
+3. Extract the ZIP file
 
 ---
 
@@ -162,11 +175,13 @@ Alt+Space → pm pip django         # 🐍 Search only PyPI
 
 ### 1️⃣ **Download & Extract** (30 seconds)
 
-**Option A: Download from Releases**
+**Download Plugin:**
 
-1. Go to [Releases](https://github.com/ruslanlap/PowerToysRun-PackageManager/releases/latest)
-2. Download `PackageManager-x64.zip` or `PackageManager-ARM64.zip`
+1. Go to **Releases** page in your GitHub repository
+2. Download `PackageManager-1.0.0-x64.zip` or `PackageManager-1.0.0-ARM64.zip`
 3. Extract the ZIP file
+
+> **First time?** Create a release first: `git tag v1.0.0 && git push origin v1.0.0`
 
 ### 2️⃣ **Install to PowerToys** (30 seconds)
 
@@ -562,18 +577,20 @@ Copyright (c) 2025 ruslanlap
 
 ### 🚀 **Ready to supercharge your package search workflow?**
 
-<a href="https://github.com/ruslanlap/PowerToysRun-PackageManager/releases/latest">
-  <img src="https://img.shields.io/badge/Download_Now-x64_|_ARM64-0078d4?style=for-the-badge&logo=windows&logoColor=white" alt="Download Now">
+<a href="#-quick-start">
+  <img src="https://img.shields.io/badge/Get_Started-Quick_Start_Guide-0078d4?style=for-the-badge&logo=windows&logoColor=white" alt="Get Started">
 </a>
 
 <br><br>
 
-**Found this useful?** Give it a ⭐ on [GitHub](https://github.com/ruslanlap/PowerToysRun-PackageManager)!
+**Found this useful?** Give it a ⭐ on GitHub!
 
-**Have questions?** Open an [issue](https://github.com/ruslanlap/PowerToysRun-PackageManager/issues) or [discussion](https://github.com/ruslanlap/PowerToysRun-PackageManager/discussions)
+**Have questions?** Open an issue or discussion in your repository
+
+**Ready to release?** Create a tag: `git tag v1.0.0 && git push origin v1.0.0`
 
 ---
 
-Made with ❤️ by [ruslanlap](https://github.com/ruslanlap) | [Report Bug](https://github.com/ruslanlap/PowerToysRun-PackageManager/issues) | [Request Feature](https://github.com/ruslanlap/PowerToysRun-PackageManager/issues)
+Made with ❤️ by YOU | Build with PowerToys Run API | MIT License
 
 </div>
