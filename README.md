@@ -201,40 +201,38 @@ Alt+Space → pm pip django         # 🐍 Search only PyPI
 
 **Download Plugin:**
 
-1. Go to **Releases** page in your GitHub repository
+1. Go to [Releases](https://github.com/ruslanlap/PowerToysRun-PackageManager/releases/latest) page
 2. Download `PackageManager-1.0.0-x64.zip` or `PackageManager-1.0.0-ARM64.zip`
 3. Extract the ZIP file
 
-> **First time?** Create a release first: `git tag v1.0.0 && git push origin v1.0.0`
-
 ### 2️⃣ **Install to PowerToys** (30 seconds)
 
-**Auto-Install Location:**
+**Installation Steps:**
 
-```
-%LOCALAPPDATA%\Microsoft\PowerToys\PowerToys Run\Plugins\PackageManager\
-```
-
-**Manual Steps:**
-
-1. Press `Win + R`
-2. Paste the path above and press Enter
-3. Copy the extracted `PackageManager` folder here
-4. Folder structure should be:
+1. Press `Win + R` to open the Run dialog
+2. Paste the following path and press Enter:
+    ```
+    %LOCALAPPDATA%\Microsoft\PowerToys\PowerToys Run\Plugins\
+    ```
+3. Copy the extracted `PackageManager` folder into the `Plugins` directory
+4. Your folder structure should look like this:
     ```
     Plugins\
       └── PackageManager\
           ├── Community.PowerToys.Run.Plugin.PackageManager.dll
           ├── plugin.json
           └── Images\
+              ├── packagemanager.dark.png
+              └── packagemanager.light.png
     ```
 
 ### 3️⃣ **Restart PowerToys** (15 seconds)
 
-1. Right-click PowerToys tray icon → Exit
-2. Launch PowerToys again
-3. Press `Alt+Space` to open PowerToys Run
-4. Type `pm` to verify the plugin is loaded
+1. Right-click the PowerToys icon in your system tray
+2. Click "Exit" or "Quit"
+3. Launch PowerToys again from the Start menu
+4. Press `Alt + Space` to open PowerToys Run
+5. Type `pm` to verify the plugin is working
 
 ---
 
