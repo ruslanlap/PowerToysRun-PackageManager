@@ -63,9 +63,11 @@ jobs:
           $content | ConvertTo-Json -Depth 10 | Set-Content $pluginJson -Encoding UTF8
 
           # 2. Build
+          $rid = if ("${{ matrix.platform }}" -eq "x64") { "win-x64" } else { "win-arm64" }
           dotnet build "${{ env.PLUGIN_DIR }}/Community.PowerToys.Run.Plugin.PackageManager.csproj" `
             -c Release `
-            -p:Platform="${{ matrix.platform }}"
+            -p:Platform="${{ matrix.platform }}" `
+            -p:RuntimeIdentifier=$rid
 
           # 3. Locate binaries
           $outDir = "${{ env.PLUGIN_DIR }}/bin/${{ matrix.platform }}/Release"
